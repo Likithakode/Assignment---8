@@ -1,161 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Budget</title>
-    <link rel="stylesheet" href="/reset.css">
-    <link rel="stylesheet" href="/main.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-</head>
-<body>
+const express = require('express');
+const mongoose = require('mongoose');
+const app = express();
+const port = 4000;
 
-    <div class="menu">
-        <ul>
-            <li><a href="/">Homepage</a></li>
-            <li><a href="/about.html">About</a></li>
-            <li><a href="/login.html">Login</a></li>
-            <li><a href="https://google.com">Google</a></li>
-        </ul>
-    </div>
+app.use(express.json());
 
-    <div class="hero">
-        <h1>Personal Budget</h1>
-        <h2>A personal-budget management app</h2>
-    </div>
+mongoose.connect('mongodb+srv://lkode:lkode%402002@assignment8.7xpuw.mongodb.net/Budget?retryWrites=true&w=majority', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
 
-    <div class="container center">
-        <div class="page-area">
+const budgetSchema = new mongoose.Schema({
+    title: String,
+    budget: Number,
+    color: String,
+});
 
-            <div class="text-box">
-                <h1>Stay on track</h1>
-                <p>
-                    Do you know where you are spending your money? If you really stop to track it down,
-                    you would get surprised! Proper budget management depends on real data... and this
-                    app will help you with that!
-                </p>
-            </div>
+const Budget = mongoose.model('Budget', budgetSchema);
 
-            <div class="text-box">
-                <h1>Alerts</h1>
-                <p>
-                    What if your clothing budget ended? You will get an alert. The goal is to never go over the budget.
-                </p>
-            </div>
+app.get('/budget', async (req, res) => {
+    try {
+        const budgets = await Budget.find();
+        res.json({ mybudget: budgets });
+    } catch (error) {
+        res.status(500).send('Error fetching budget data');
+    }
+});
 
-            <div class="text-box">
-                <h1>Results</h1>
-                <p>
-                    People who stick to a financial plan, budgeting every expense, get out of debt faster!
-                    Also, they live happier lives... since they spend without guilt or fear... 
-                    because they know it is all good and accounted for.
-                </p>
-            </div>
+app.post('/budget', async (req, res) => {
+    const { title, budget , color} = req.body;
 
-            <div class="text-box">
-                <h1>Free</h1>
-                <p>
-                    This app is free!!! And you are the only one holding your data!
-                </p>
-            </div>
+    if (!title || !budget || !color) {
+        return res.status(400).send('Title, budget and color are required');
+    }
 
-            <div class="text-box">
-                <h1>Chart.js Pie Chart</h1>
-                <canvas id="myChart" width="400" height="400"></canvas>
-                <p id="loadingChartJs">Loading Chart.js chart...</p>
-            </div>
+    const newBudget = new Budget({ title, budget, color });
 
-            <div class="text-box">
-                <h1>D3.js Pie Chart</h1>
-                <svg id="d3Chart" width="400" height="400"></svg>
-                <p id="loadingD3">Loading D3 chart...</p>
-            </div>
+    try {
+        await newBudget.save();
+        res.status(201).json(newBudget);
+    } catch (error) {
+        res.status(500).send('Error adding budget item');
+    }
+});
 
-        </div>
-    </div>
+app.use('/', express.static('public'));
 
-    <div class="bottom">
-        <div class="center">
-            All rights reserved &copy; Likitha
-        </div>
-    </div>
-
-    <script>
-        const dataSource = {
-            datasets: [{
-                data: [],
-                backgroundColor: [
-                    
-                ],
-            }],
-            labels: []
-        };
-    
-        async function fetchBudgetData() {
-            try {
-                const response = await axios.get('http://localhost:4000/budget');
-                const budgetData = response.data.mybudget;
-                budgetData.forEach(item => {
-                    dataSource.datasets[0].data.push(item.budget);
-                    dataSource.datasets[0].backgroundColor.push(item.color);
-                    dataSource.labels.push(item.title);
-                });
-                createChart();
-                drawD3Chart(budgetData);
-            } catch (error) {
-                console.error('Error fetching data', error);
-            }
-        }
-    
-        function createChart() {
-            const ctx = document.getElementById('myChart').getContext("2d");
-            new Chart(ctx, {
-                type: 'pie',
-                data: dataSource
-            });
-            document.getElementById('loadingChartJs').style.display = 'none';
-        }
-    
-        function drawD3Chart(data) {
-            const width = 400;
-            const height = 400;
-            const radius = Math.min(width, height) / 2;
-    
-            const color = d3.scaleOrdinal(d3.schemeCategory10);
-    
-            const pie = d3.pie().value(d => d.budget)(data);
-            const arc = d3.arc().innerRadius(0).outerRadius(radius);
-    
-            const svg = d3.select('#d3Chart')
-                .append('g')
-                .attr('transform', `translate(${width / 2}, ${height / 2})`);
-    
-            svg.selectAll('path')
-                .data(pie)
-                .enter()
-                .append('path')
-                .attr('d', arc)
-                .attr('fill', d => color(d.data.title))
-                .attr('stroke', 'white')
-                .style('stroke-width', '2px')
-                .style('opacity', 0.7);
-    
-            svg.selectAll('text')
-                .data(pie)
-                .enter()
-                .append('text')
-                .text(d => `${d.data.title}: ${d.data.budget}`)
-                .attr('transform', d => `translate(${arc.centroid(d)})`)
-                .style('text-anchor', 'middle')
-                .style('font-size', 12);
-    
-            document.getElementById('loadingD3').style.display = 'none';
-        }
-    
-        fetchBudgetData();
-    </script>
-    
-</body>
-</html>
+app.listen(port, () => {
+    console.log(`App listening on http://localhost:${port}`);
+});
